@@ -6,35 +6,13 @@ import { fetchSingleCandidate } from "@/lib/features/candidate";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { TimePicker } from "@/components/ui/time-picker";
 import { fetchInterviewers } from "@/lib/features/interviewer";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import AlertSuccess from "@/components/alert-success";
 import AlertFailure from "@/components/alert-failure";
 import NotFoundPage from "@/components/design/404notFound";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import GlobalLoader from "@/components/loader/globalLoader";
 import { interviewSchema } from "@/schemas/interview";
-import { format } from 'date-fns'; // Import the format function
 import { clearInterviewError, clearInterviewSuccess, scheduleInterview } from "@/lib/features/interview";
 import Link from "next/link";
 import CVViewer from "@/components/cv-viewer";
@@ -43,10 +21,12 @@ import InterviewForm from "@/components/interview-form";
 const Page = () => {
   const dispatch = useAppDispatch();
   const { singleData: candidate, singleLoading } = useAppSelector((state) => state.candidate);
-  const { data: interviewers } = useAppSelector((state) => state.interviewer);
+  const { data: interviewers , candidateInterviewsLoading} = useAppSelector((state) => state.interviewer);
   const { success, error } = useAppSelector((state) => state.interview);
   const params = useParams();
   const id = params.id;
+
+
 
   const form = useForm({
     resolver: zodResolver(interviewSchema),
@@ -56,10 +36,6 @@ const Page = () => {
       interviewTime: "",
     },
   });
-
-  if (singleLoading) {
-    return <GlobalLoader />;
-  }
 
   useEffect(() => {
     if (id) {
@@ -76,7 +52,7 @@ const Page = () => {
       interviewDate: values.interviewDate,
       interviewTime: values.interviewTime,
     };
-   
+
     const result = await dispatch(scheduleInterview(interviewData));
     if (scheduleInterview.fulfilled.match(result)) {
       dispatch(fetchSingleCandidate(id));
@@ -86,6 +62,11 @@ const Page = () => {
   if (!id) {
     return <NotFoundPage />;
   }
+
+  if (singleLoading || candidateInterviewsLoading) {
+    return <GlobalLoader />;
+  }
+
 
 
   return (
@@ -110,6 +91,7 @@ const Page = () => {
           <InterviewSchedules candidate={candidate} />
         )}
 
+        <AssessmentDetails candidate={candidate}/>
 
         {/* Success/Error Alerts */}
         <AlertSuccess
@@ -192,5 +174,42 @@ const InterviewSchedules = ({ candidate }) => {
     </Card>
   )
 }
+
+const AssessmentDetails = ({ candidate }) => {
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-xl font-semibold text-gray-800">Assessment Assigned</h2>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {candidate?.assessments?.length > 0 ? (
+            <>
+              <p>This candidate has been assigned an assessment.</p>
+              {candidate.assessments.map((assessment) => (
+                <div key={assessment._id} className="border p-4 rounded">
+                  <p><strong>Type:</strong> {assessment.assessmentType}</p>
+                  <p><strong>Remarks:</strong> {assessment.remarks || "N/A"}</p>
+                </div>
+              ))}
+
+              {/* See More Details Link */}
+              <div className="pt-2">
+                <Link
+                  href={`/admin/candidates/${candidate._id}/assessments`}
+                  className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                >
+                  See more details
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p>No assessment has been assigned to this candidate yet.</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default Page;
